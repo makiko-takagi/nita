@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>建築コースPC診断</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Dela+Gothic+One&display=swap">
+<style>
+/* Layout: 無地・高コントラスト。左＝質問、右＝診断結果と「店員さんに見せるメモ」。色だけに頼らず、線の太さと【注意】【メモ】の文字で区別する */
+:root{
+  --bg:#ffffff; --fg:#000000; --muted:#2b2b2b; --line:#000000; --accent:#003d99; --accent-fg:#ffffff;
+  --f-disp:"Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#000000; --fg:#ffffff; --muted:#e6e6e6; --line:#ffffff; --accent:#9ccaff; --accent-fg:#000000; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000000; --fg:#ffffff; --muted:#e6e6e6; --line:#ffffff; --accent:#9ccaff; --accent-fg:#000000; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.75}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+header{display:grid;gap:14px;margin-bottom:24px}
+h1{font-family:var(--f-disp);font-weight:400;font-size:clamp(28px,5vw,42px);line-height:1.2;margin:0;text-wrap:balance}
+.intro{border:3px solid var(--line);padding:16px 18px;display:grid;gap:8px;max-width:820px}
+.intro h2{margin:0;font-size:18px}
+.intro p{margin:0}
+.intro ul{margin:0;padding-left:1.3em}
+.intro li{margin:4px 0}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}}
+form{display:grid;gap:26px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:10px;min-width:0}
+legend{display:flex;gap:10px;align-items:baseline;padding:0;margin-bottom:8px;font-weight:700;font-size:17px}
+legend .q{font-size:13px;color:var(--accent-fg);background:var(--accent);padding:1px 8px;font-weight:700}
+.hint{font-size:14px;color:var(--muted);margin:-6px 0 0}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.opt{position:relative}
+.opt input{position:absolute;opacity:0;inset:0;margin:0}
+.opt label{display:flex;gap:8px;height:100%;border:1.5px solid var(--line);padding:9px 11px;cursor:pointer;background:var(--bg);line-height:1.45}
+.opt label::before{content:"";flex:none;width:18px;height:18px;margin-top:2px;border:2px solid var(--fg);display:grid;place-items:center;font-size:13px;font-weight:700}
+.opt input[type=radio]+label::before{border-radius:50%}
+.opt input:checked+label{background:var(--fg);color:var(--bg)}
+.opt input:checked+label::before{content:"✓";border-color:var(--bg);color:var(--bg)}
+.opt input:checked+label small{color:var(--bg)}
+.opt input:focus-visible+label{outline:3px solid var(--accent);outline-offset:2px}
+.opt label b{display:block;font-size:15px}
+.opt label small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.pgroup{display:grid;gap:6px;margin-top:6px}
+.pg-h{font-weight:700;font-size:14.5px;border-bottom:2px solid var(--line);padding-bottom:2px}
+.pg-h small{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.opt input:disabled+label{cursor:default}
+.prio{margin:0 0 12px;padding:0;list-style:none;display:grid;gap:4px;font-size:14.5px}
+.prio li{display:grid;grid-template-columns:5.5em 1fr;gap:8px;border-top:1.5px solid var(--line);padding-top:4px}
+.prio li span{font-weight:700}
+.tag{display:inline-block;font-size:11.5px;border:1px solid currentColor;padding:0 5px;margin-left:4px;font-weight:700;vertical-align:1px}
+.result{display:grid;gap:18px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 14px)}
+@media (max-width:880px){.result{position:static}}
+.box{border:3px solid var(--line);padding:16px}
+.rank{display:flex;justify-content:space-between;align-items:end;gap:12px;border-bottom:3px solid var(--line);padding-bottom:10px;margin-bottom:10px}
+.rank-label{font-size:13px;font-weight:700}
+.rank-name{font-family:var(--f-disp);font-size:24px;line-height:1.3}
+.rank-num{font-family:var(--f-disp);font-size:36px;line-height:1;white-space:nowrap}
+.rank-num small{font-size:15px}
+.why{margin:0 0 10px;font-size:15px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{border-top:1.5px solid var(--line);padding:7px 6px;text-align:left;vertical-align:top}
+th{width:6.5em;font-weight:700;white-space:nowrap}
+td b{font-variant-numeric:tabular-nums}
+td small{display:block;color:var(--muted);font-size:13px}
+td .ex{display:block;font-size:13px;margin-top:4px;padding-left:8px;border-left:3px solid var(--line)}
+td .ex::before{content:"解説：";font-weight:700}
+.notes{display:grid;gap:8px;margin-top:12px}
+.note{padding:8px 10px;font-size:14.5px;line-height:1.65}
+.note.warn{border:3px solid var(--line)}
+.note.good{border:1.5px dashed var(--line)}
+.note strong{display:block}
+h3{font-size:16px;margin:0 0 8px}
+.btnrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font:inherit;font-weight:700;font-size:16px;padding:10px 18px;border:3px solid var(--fg);background:var(--fg);color:var(--bg);cursor:pointer}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+button[disabled]{opacity:.6;cursor:wait}
+.status{font-size:14px}
+.q-list{display:grid;gap:10px}
+.qrow{border:1.5px solid var(--line);padding:8px 10px}
+.qrow code{font-family:var(--f-body);font-size:14.5px;display:block;margin-bottom:6px;word-break:break-all}
+.links{display:flex;flex-wrap:wrap;gap:6px}
+.links a{font-size:14px;color:var(--accent);border:2px solid var(--accent);padding:2px 10px;text-decoration:underline;font-weight:700}
+.links a:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.checklist{margin:0;padding-left:1.3em;font-size:14.5px}
+.checklist li{margin:3px 0}
+.extra{margin-top:30px;max-width:75ch;border:1.5px dashed var(--line);padding:10px 14px;font-size:14.5px}
+.extra b{display:block}
+footer{margin-top:18px;font-size:14px;color:var(--muted);max-width:75ch}
+
+/* 店員さんに見せるメモ：スクリーンショット用。色は固定（白地に黒） */
+.memo{background:#fff;color:#000;border:3px solid #000;padding:18px 20px;font-family:var(--f-body);line-height:1.6}
+.memo h4{font-family:var(--f-disp);font-weight:400;font-size:22px;margin:0 0 4px}
+.memo .sub{font-size:13px;margin:0 0 12px}
+.memo table th,.memo table td{border-top:1.5px solid #000;color:#000;font-size:14px}
+.memo table td small{color:#222}
+.memo .ask{margin:12px 0 0;border:1.5px solid #000;padding:8px 12px;font-size:14px}
+.memo .ask b{display:block}
+.memo .ask ol{margin:4px 0 0;padding-left:1.4em}
+.memo .foot{font-size:11.5px;margin:10px 0 0}
+.memo-scroll{overflow-x:auto}
+</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <h1>建築コースPC診断</h1>
+    <section class="intro" aria-label="3年生のみなさんへ">
+      <h2>3年生のみなさんへ：まず読んでください</h2>
+      <ul>
+        <li><b>今すぐ買う必要はありません。</b>4年生の授業や課題も、学校のPCで取り組めます（本校の場合）。</li>
+        <li>買うのは、<b>自分のPCでいろいろ触って慣れておきたい人</b>です。</li>
+        <li>買うなら、<b>5年生まで（約3年）使う想定</b>で選びましょう。途中で足りなくならないよう、メモリは少し余裕をもたせるのがおすすめです。</li>
+      </ul>
+      <p>質問に答えると、推奨スペックが出ます。最後に「店員さんに見せるメモ」が出るので、スクリーンショットして、家電量販店（ヨドバシなど）で相談するときに見せてください。</p>
+    </section>
+  </header>
+
+  <div class="grid">
+    <section aria-label="質問">
+      <form id="f">
+        <fieldset>
+          <legend><span class="q">Q1</span>どの分野に進みたい？</legend>
+          <div class="opts">
+            <div class="opt"><input type="radio" name="field" id="fd-plan" value="plan" checked><label for="fd-plan"><span><b>計画・意匠系</b><small>設計・デザイン・まちづくり</small></span></label></div>
+            <div class="opt"><input type="radio" name="field" id="fd-str" value="str"><label for="fd-str"><span><b>構造系</b><small>構造設計・材料・施工。解析や3Dは研究室PC</small></span></label></div>
+            <div class="opt"><input type="radio" name="field" id="fd-env" value="env"><label for="fd-env"><span><b>設備・環境系</b><small>空調・照明・温熱環境。シミュレーションは研究室PC</small></span></label></div>
+            <div class="opt"><input type="radio" name="field" id="fd-un" value="un"><label for="fd-un"><span><b>まだ決めていない</b></span></label></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="q">Q2</span>卒業後は？</legend>
+          <div class="opts">
+            <div class="opt"><input type="radio" name="path" id="pa-go" value="go" checked><label for="pa-go"><span><b>進学</b><small>大学編入・専攻科。進学先でも使える</small></span></label></div>
+            <div class="opt"><input type="radio" name="path" id="pa-job" value="job"><label for="pa-job"><span><b>就職</b><small>仕事用PCは会社が用意</small></span></label></div>
+            <div class="opt"><input type="radio" name="path" id="pa-un" value="un"><label for="pa-un"><span><b>未定</b></span></label></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="q">Q3</span>PCでしたいこと（いくつでも）</legend>
+          <div class="opts">
+            <div class="opt"><input type="checkbox" name="want" id="w-rep" value="rep"><label for="w-rep"><span><b>レポートだけできればいい</b><small>図面は学校のPCのJw_cadで描く</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="want" id="w-doc" value="doc" checked><label for="w-doc"><span><b>レポート・図面が中心</b><small>まずは慣れたい</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="want" id="w-3d" value="model"><label for="w-3d"><span><b>3Dでいろいろ作りたい</b><small>模型の検討・形を作る</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="want" id="w-rt" value="render"><label for="w-rt"><span><b>ばりばり3Dしたい</b><small>動画・大きな敷地のレンダリングまで</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="want" id="w-dp" value="paint"><label for="w-dp"><span><b>デジタルパースを描きたい</b><small>手描き風・着彩</small></span></label></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="q">Q4</span>使う予定のソフト（いくつでも）</legend>
+          <p class="hint">上から優先度が高い順です。まずはJw_cadで図面が描けるようになることが一番大事です。</p>
+          <div class="pgroup"><div class="pg-h">優先度1　全員必須<small>授業で使う。まずはこれをマスター</small></div>
+          <div class="opts">
+            <div class="opt"><input type="checkbox" name="soft" id="s-jw" value="jw" checked disabled><label for="s-jw"><span><b>Jw_cad</b><small>2D図面。Windowsのみ</small></span></label></div>
+          </div></div>
+          <div class="pgroup"><div class="pg-h">優先度2　計画系はできれば使いたい<small>計画・意匠系の人におすすめ（自分で選んでください）</small></div>
+          <div class="opts">
+            <div class="opt"><input type="checkbox" name="soft" id="s-aff" value="aff" checked><label for="s-aff"><span><b>Affinityなどのベクターソフト</b><small>プレボ・ダイアグラムづくり</small></span></label></div>
+          </div></div>
+          <div class="pgroup"><div class="pg-h">優先度3　計画系で使う人が多い（どれか1つ慣れておくとよい）<small>選択科目の設計ではRhinoかAutoCADを使う人が多い。仕事ではAutoCADなどを使うので、慣れておくと役立つ。ただし図面を理解しないまま使うのは逆効果</small></div>
+          <div class="opts">
+            <div class="opt"><input type="checkbox" name="soft" id="s-rhino" value="rhino" checked><label for="s-rhino"><span><b>Rhino</b><small>3Dモデリング</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="soft" id="s-acad" value="acad"><label for="s-acad"><span><b>AutoCAD</b><small>2D図面。仕事でよく使う</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="soft" id="s-arch" value="arch"><label for="s-arch"><span><b>Archicad</b><small>BIM（3Dから図面まで）</small></span></label></div>
+          </div></div>
+          <div class="pgroup"><div class="pg-h">優先度4　計画系のごく一部の人向け<small>レンダリングは3Dを自在に使えるようになってから。手描きパースが得意な人は、そちらを伸ばせば十分</small></div>
+          <div class="opts">
+            <div class="opt"><input type="checkbox" name="soft" id="s-lumion" value="lumion"><label for="s-lumion"><span><b>Lumion</b><small>パース・動画。Windowsのみ</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="soft" id="s-twin" value="twin"><label for="s-twin"><span><b>Twinmotion</b><small>パース・動画</small></span></label></div>
+            <div class="opt"><input type="checkbox" name="soft" id="s-ai" value="ai"><label for="s-ai"><span><b>Illustrator・Photoshop</b><small>Affinityの代わり・仕上げ</small></span></label></div>
+          </div></div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="q">Q5</span>予算（本体）</legend>
+          <div class="opts">
+            <div class="opt"><input type="radio" name="budget" id="b0" value="0"><label for="b0"><span><b>〜10万円</b></span></label></div>
+            <div class="opt"><input type="radio" name="budget" id="b1" value="1"><label for="b1"><span><b>10〜15万円</b></span></label></div>
+            <div class="opt"><input type="radio" name="budget" id="b2" value="2" checked><label for="b2"><span><b>15〜25万円</b></span></label></div>
+            <div class="opt"><input type="radio" name="budget" id="b3" value="3"><label for="b3"><span><b>25〜35万円</b></span></label></div>
+            <div class="opt"><input type="radio" name="budget" id="b4" value="4"><label for="b4"><span><b>35万円〜</b></span></label></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="q">Q6</span>重さはどこまで許せる？</legend>
+          <p class="hint">毎日持ち歩くなら、教科書や模型材料と一緒に運ぶことを考えてください。</p>
+          <div class="opts">
+            <div class="opt"><input type="radio" name="weight" id="wt2" value="2" checked><label for="wt2"><span><b>ほどほど</b><small>1.8kgくらいまで。持ち歩く人向け</small></span></label></div>
+            <div class="opt"><input type="radio" name="weight" id="wt3" value="3"><label for="wt3"><span><b>重くてもいい</b><small>2kg超OK・家で使う</small></span></label></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="q">Q7</span>Windows と Mac、どっちがいい？</legend>
+          <div class="opts">
+            <div class="opt"><input type="radio" name="os" id="os-w" value="win" checked><label for="os-w"><span><b>Windows</b></span></label></div>
+            <div class="opt"><input type="radio" name="os" id="os-m" value="mac"><label for="os-m"><span><b>Mac</b></span></label></div>
+            <div class="opt"><input type="radio" name="os" id="os-a" value="any"><label for="os-a"><span><b>どちらでも</b></span></label></div>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="result" aria-label="診断結果">
+      <div class="box" id="out" aria-live="polite"></div>
+
+      <div class="box">
+        <h3>店員さんに見せるメモ</h3>
+        <p style="margin:0">このメモをスクリーンショットして、店員さんに見せてください。</p>
+        <div class="memo-scroll" style="margin-top:12px"><div class="memo" id="memo"></div></div>
+      </div>
+
+      <div class="box">
+        <h3>ネットで探す</h3>
+        <div class="q-list" id="search"></div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="extra" aria-label="番外編">
+    <b>番外編：歴史系に進みたい人へ</b>
+    就職ならランク1、進学なら「とりあえずMac」。文献とPDFと写真が相棒です。（診断の選択肢にはありません。高木の私見です）
+  </aside>
+
+  <footer>
+    スペックと価格の目安は2026年10月時点のもの（新品・税込・Officeなし）です。学校のPC環境や先生方の意見は、本校の2026年度時点の情報です。2026年はメモリやSSDの値上がりでノートPC全体の価格が上がっているため、価格の目安は数か月で変わることがあります。ソフトの動作環境はバージョンごとに変わるので、購入前に各ソフトの公式サイトも確認してください。
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   ★ 更新するときはここ（TIERS・MAC・TIER_MIN_PRICE）だけ直せばOK
+   ・TIERS 0〜5 …… Windowsのランク。gpu / cpu / mem / ssd / scr は ["推奨スペック","補足"]
+   ・price / refurb / wt …… 新品価格・整備済品価格・重さの目安（文字列）
+   ・kw …… 検索キーワード
+   ・MAC low / mid / high …… Macの3段階（min は予算判定に使う下限価格・万円）
+   ・TIER_MIN_PRICE …… Windows各ランクの下限価格（万円）。予算判定に使う
+   ========================================================= */
+const TIERS = {
+  0:{name:"ミニマム", sub:"レポートだけ（図面は学校のPC）",
+     cpu:["Core 3 / Ryzen 3 以上","Word・PowerPoint・Classroomなら動く。N100などの最安CPUは避けたい"],
+     mem:["8GB（できれば16GB）","8GBは最低ライン。複数のソフトを同時に開くと重くなる"],
+     gpu:["内蔵GPUで可","図面は描かない前提"],
+     ssd:["256GB以上","データはクラウドや外付けに保管"],
+     scr:["15型以上 フルHD","非光沢だと目が疲れにくい"],
+     price:"8〜11万円", refurb:"4〜7万円（中古・整備済み品。在庫次第）", wt:"1.3〜1.8kg",
+     kw:["ノートパソコン Core 3 8GB 256GB","ノートパソコン Ryzen 3 8GB","ノートパソコン 整備済み品 Core i5 16GB"]},
+  1:{name:"ライト", sub:"Jw_cad・レポート中心",
+     cpu:["Core 5・Core Ultra 5 / Ryzen 5 以上","レポート・図面ならこれで十分（本校の先生方の共通意見）。省電力のU・Vシリーズでも可"],
+     mem:["16GB","後から増やせない機種が多い。8GBは避ける"],
+     gpu:["内蔵GPUで可","2D図面には十分"],
+     ssd:["512GB","データが増えたら外付けSSDで保管"],
+     scr:["15型以上 フルHD以上","持ち歩き重視なら14型にして、家では外付けモニタを使う"],
+     price:"12〜17万円", refurb:"10〜15万円", wt:"1.2〜1.7kg（1.3kg以下の軽量機は割高）",
+     kw:["ノートパソコン Core 5 メモリ16GB SSD512GB","ノートパソコン Core Ultra 5 16GB 512GB","ノートパソコン Ryzen 5 16GB 512GB"]},
+  2:{name:"スタンダード", sub:"図面＋プレボ",
+     cpu:["Core 5・Core Ultra 5 / Ryzen 5 以上","図面とプレボならこれで十分。予算があれば7だと余裕が出る"],
+     mem:["16GB（大判プレボなら32GB）","Illustrator・Photoshopは16GB推奨。複数ソフトを同時に開くなら32GB"],
+     gpu:["内蔵GPUで可","Intel Arc内蔵のCore Ultraなど新しい内蔵GPUなら、Rhinoの軽いモデリングも試せる"],
+     ssd:["512GB","課題の保管・バックアップは外付けSSDへ"],
+     scr:["15型以上 フルHD以上","sRGB 100%前後・非光沢だとプレボの色を確認しやすい"],
+     price:"15〜22万円（32GBなら20万円前後）", refurb:"12〜19万円", wt:"1.2〜1.8kg",
+     kw:["ノートパソコン Core Ultra 5 メモリ32GB","ノートパソコン Ryzen 5 32GB 512GB","ノートパソコン Core Ultra 5 16GB sRGB100%"]},
+  3:{name:"3Dエントリー", sub:"Rhino・Archicadを使う",
+     cpu:["Core 5・7 / Ryzen 5・7（Hシリーズ）","3Dは高性能版のHシリーズを選ぶ"],
+     mem:["32GB推奨（16GBは最低ライン）","3年間使うなら32GB。Archicadを使うならなおさら"],
+     gpu:["GeForce RTX 5050 / 4050","VRAM 6GB以上。名前に「RTX」が付くか確認"],
+     ssd:["512GB以上（1TBが安心）","作業中の3Dデータは本体に置き、保管・バックアップを外付けSSDに"],
+     scr:["15〜16型 フルHD以上","sRGB 100%前後・非光沢が理想（安い機種は色が薄いことがある）"],
+     price:"19〜26万円", refurb:"15〜23万円（出回る数は少なめ）", wt:"1.8〜2.3kg（安いゲーミング系は2kg超が多い）",
+     kw:["ゲーミングノート RTX 5050 メモリ16GB SSD512GB","ゲーミングノート RTX 5050 32GB 1TB","ノートパソコン RTX 4050 16GB"]},
+  4:{name:"3Dスタンダード", sub:"Rhino・Archicadを本格的に。Lumion・Twinmotionも動く",
+     cpu:["Core 7 / Ryzen 7 以上（Hシリーズ）","GPUを優先し、CPUは7クラスで十分"],
+     mem:["32GB","3Dソフトを3年使うならこれが標準"],
+     gpu:["GeForce RTX 5060 以上","VRAM 8GB。Lumion・Twinmotionの最低ラインは満たす"],
+     ssd:["1TB（本体）","3Dソフトと素材で容量を使う"],
+     scr:["16型 フルHD〜WQXGA","sRGB 100%前後・非光沢"],
+     price:"25〜33万円", refurb:"20〜29万円（出回る数は少ない）", wt:"2.0〜2.5kg",
+     kw:["ゲーミングノート RTX 5060 メモリ32GB SSD1TB","ノートパソコン RTX 5060 32GB 16インチ","クリエイターノート RTX 5060 32GB"]},
+  5:{name:"レンダリング本気", sub:"Lumion・Twinmotionで動画・大きな敷地まで",
+     cpu:["Core 7 / Ryzen 7 以上（H・HXシリーズ）","GPUを優先。CPUは9クラスでなくてもよい"],
+     mem:["32GB以上（64GBが理想）","Lumionの公式推奨は32GB以上、高負荷では64GB"],
+     gpu:["GeForce RTX 5070 Ti 以上","VRAM 12GB以上（Lumion公式のノートPC推奨）。高負荷ならRTX 5080・VRAM 16GB"],
+     ssd:["1〜2TB（本体）","Lumion本体だけで約100GB。素材は本体のSSDに置く"],
+     scr:["16型","解像度を上げすぎると重くなる。色の正確さ（sRGB 100%前後）を優先"],
+     price:"40〜60万円", refurb:"32〜52万円（ほとんど出回らない）", wt:"2.4〜3.0kg（ACアダプタ別）",
+     kw:["ゲーミングノート RTX 5070 Ti メモリ32GB","ノートパソコン RTX 5070 Ti 32GB 1TB","ゲーミングノート RTX 5080 32GB"]}
+};
+/* Mac用の目安（Jw_cad・LumionはMacでは動かない） */
+const MAC = {
+  low:{name:"Air",cpu:["Apple M5 以降（MacBook Air）","2D・プレボには十分"],mem:["16GB","8GBは避ける"],gpu:["チップ内蔵","2D・プレボには十分"],ssd:["512GB","保管は外付けSSDへ"],scr:["15型推奨（13型は軽いが図面には小さい）","15型は13型より数万円高い。色の正確さは十分"],price:"22.5万円〜（Apple公式で確認）",refurb:"在庫・構成により変動。当日のApple公式（認定整備済製品）で確認",wt:"1.2〜1.5kg",min:22.5,
+       kw:["MacBook Air 16GB 512GB","MacBook Air 13インチ M5"]},
+  mid:{name:"Air（メモリ多め）",cpu:["Apple M5 以降（MacBook Air）","Rhinoや小規模なArchicadなら動く"],mem:["24GB","3Dを3年使うなら16GBより安心"],gpu:["チップ内蔵","大きな3Dモデルは重くなる"],ssd:["512GB〜1TB","作業中の3Dデータは本体に"],scr:["15型推奨（13型は軽いが図面には小さい）","15型は13型より数万円高い。色の正確さは十分"],price:"25万円前後〜（構成による。Apple公式で確認）",refurb:"在庫・構成により変動。当日のApple公式（認定整備済製品）で確認",wt:"1.2〜1.5kg",min:25,
+       kw:["MacBook Air 24GB 512GB","MacBook Air 24GB 1TB"]},
+  high:{name:"Pro",cpu:["Apple Pro チップ（MacBook Pro）","Twinmotionや大きな3Dモデル向け"],mem:["32GB以上","Twinmotion Mac版の最低は32GB"],gpu:["チップ内蔵（Proチップ）","Twinmotionはパストレーサー・VR非対応"],ssd:["1TB","3Dデータは本体に"],scr:["16型推奨（14型＋外付けモニタでも可）","色の正確さは十分"],price:"34万円〜（32GB・1TBなら40万円前後〜。Apple公式で確認）",refurb:"在庫・構成により変動。当日のApple公式（認定整備済製品）で確認",wt:"1.6〜2.2kg",min:40,
+       kw:["MacBook Pro 32GB 1TB","MacBook Pro 14インチ 32GB"]}
+};
+function macLevel(t){return t<=2?"low":t===3?"mid":"high";}
+const PRIO=[["jw",1,"全員必須"],["aff",2,"計画系はできれば使いたい"],["rhino",3,"計画系で使う人が多い"],["acad",3,"計画系で使う人が多い・仕事でも使う"],["arch",3,"計画系で使う人が多い"],["lumion",4,"ごく一部向け"],["twin",4,"ごく一部向け"],["ai",4,"ごく一部向け"]];
+const SOFT_NAME={jw:"Jw_cad",acad:"AutoCAD",arch:"Archicad",rhino:"Rhino",lumion:"Lumion",twin:"Twinmotion",ai:"Illustrator・Photoshop",aff:"Affinityなどのベクターソフト"};
+const WANT_NAME={doc:"レポート・図面",model:"3Dでいろいろ作る",render:"動画・大きな敷地のレンダリング",paint:"デジタルパース"};
+const BUDGET_NAME={0:"〜10万円",1:"10〜15万円",2:"15〜25万円",3:"25〜35万円",4:"35万円〜"};
+const BUDGET_TOP={0:10,1:15,2:25,3:35,4:99};
+const EXPLAIN={
+  cpu:"PCの頭脳。計算や作業全体の速さを決める。末尾のU・Vは省電力版、H・HXは高性能版。",
+  mem:"作業机の広さ。大きい図面や3D、ソフトを同時に開くほど必要。足りないと急に重くなる。",
+  gpu:"画面を描く専用の部品。3Dを回したりパースを作ったりする速さはほぼこれで決まる。VRAMはGPU専用のメモリ。",
+  ssd:"データをしまう棚。ソフトや課題データ、写真がたまるほど必要。",
+  scr:"大きいほど図面が見やすいが、本体も重くなる。家では外付けモニタ（2〜3万円程度〜）をつなぐとさらに作業しやすい。sRGBは色の再現範囲。"
+};
+const TIER_MIN_PRICE={0:8,1:12,2:15,3:19,4:25,5:40};
+const WEIGHT_NAME={2:"1.8kgくらいまで",3:"重くてもよい"};
+const OS_NAME={win:"Windows",mac:"Mac",any:"どちらでも"};
+
+function val(n){const e=document.querySelector(`input[name="${n}"]:checked`);return e?e.value:null}
+function vals(n){return [...document.querySelectorAll(`input[name="${n}"]:checked`)].map(e=>e.value)}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}
+function fitTier(budget){let f=-1;for(let t=0;t<=5;t++) if(TIER_MIN_PRICE[t]<=BUDGET_TOP[budget]) f=t; return f;}
+
+function diagnose(){
+  const field=val("field"), path=val("path"), want=vals("want"), soft=vals("soft"),
+        budget=+val("budget"), weight=+val("weight"), os=val("os");
+  let tier=1; const why=[];
+  const up=(t,msg)=>{if(tier<t)tier=t; if(msg)why.push(msg)};
+  const rt = soft.includes("lumion")||soft.includes("twin");
+  if(soft.includes("acad")||soft.includes("ai")||want.includes("paint")) up(2,"AutoCADやIllustratorも使うなら、CPUとメモリに余裕がほしい");
+  if(want.includes("model")||soft.includes("rhino")||soft.includes("arch")) up(3,`${soft.includes("rhino")?"Rhino":soft.includes("arch")?"Archicad":"3Dモデリング"}を3年間使うなら、RTXクラスのGPUがあると安心`);
+  if(rt) up(4,"LumionやTwinmotionは、VRAM 8GBのRTX 5060クラスが小〜中規模なら実用的な入門ライン");
+  if(want.includes("render")) up(5,"動画や大きな敷地のレンダリングは、VRAM 12GB以上のGPUがほしい（Lumion公式の推奨）");
+  if(want.includes("rep")&&tier===1){ tier=0; why.push("レポートだけなら、図面は学校のPCのJw_cadで描けば十分。自分のPCは手頃なもので構わない"); }
+  const macNoLumion = os==="mac"&&soft.includes("lumion");
+  const os2 = macNoLumion ? "win" : os;
+  if(path==="job"&&tier>=3&&!rt) why.push("就職予定なら、卒業研究まで3Dが動けば十分");
+  if((field==="env"||field==="str")&&tier===1) why.push((field==="env"?"設備・環境系は、重いシミュレーションを":"構造系は、解析や3Dを")+"研究室のPCで行うことが多い（本校の場合）。自分のPCはJw_cadとPowerPointが使えれば十分");
+  else if(tier===1) why.push("Jw_cadとレポート中心なら、手頃な機種で十分");
+  const t=TIERS[tier], notes=[], winFit=fitTier(budget);
+  let fit=winFit, macOK=true;
+  if(os2==="mac"){
+    const need=MAC[macLevel(tier)].min, top=BUDGET_TOP[budget];
+    if(top>=need) fit=tier;
+    else if(top>=25&&tier>3) fit=3;
+    else if(top>=22.5) fit=Math.min(tier,2);
+    else { fit=winFit; macOK=false; }
+  }
+  if(macNoLumion) notes.push(["warn","MacではLumionは使えません","LumionはMacで動かないため、この組み合わせは選べません。下にはWindowsの場合の結果を出しています。Lumionを使うならWindowsを選んでください。"]);
+  if(os2==="mac"&&!macOK) notes.push(["warn","この予算ではMacは難しい",`MacBook Airは新品で22.5万円からです。予算内ならWindowsのランク${winFit}（${TIERS[winFit].name}）が目安です。整備済製品はApple公式で在庫を確認してください。`]);
+
+  if(soft.includes("acad")||soft.includes("arch")) notes.push(["good","AutoCAD・Archicadについて","仕事ではAutoCADなどを使うので、慣れておくのはよいことです。ただし図面の意味を理解しないまま使うと、かえって力がつきません。Jw_cadで図面が描けることが前提です。"]);
+  if(field==="plan"&&!soft.includes("aff")) notes.push(["good","ベクターソフトについて","計画系はプレボづくりでAffinityなどのベクターソフトがあると便利です。軽いソフトなので、どのランクのPCでも動きます。"]);
+  if(field==="plan"&&!soft.includes("rhino")&&!soft.includes("acad")&&!soft.includes("arch")) notes.push(["good","優先度3のソフトについて","計画系は選択科目の設計でRhinoかAutoCADを使う人が多いです（本校の場合）。どれか1つ慣れておくとよいでしょう。"]);
+  if(rt&&field!=="plan") notes.push(["good","Lumion・Twinmotionは計画系のごく一部向け","授業で全員が使うものではありません。興味があるだけなら、ランクを上げる前に先生に相談してください。"]);
+  if(rt) notes.push(["warn","Lumion・Twinmotionについて","本校のPC室で使えるのはJw_cadだけです（2026年度時点）。LumionやTwinmotionを使うには、自分のPC（RTX付き）が必要です。レンダリングは、3Dモデリングを自在に使えるようになってからで十分です。"]);
+  if(path==="job") notes.push(["good","就職予定なら","仕事で使うPCは会社が用意するのがふつうです。5年生までの課題と卒業研究がこなせれば十分なので、上のランクを無理に買う必要はありません。"]);
+  if(path==="go") notes.push(["good","進学予定なら","編入先や専攻科でもそのまま使うつもりで選ぶと、買い替えずに済みます。"]);
+  if(field==="env"||field==="str") notes.push([tier>=3?"warn":"good",field==="env"?"設備・環境系なら":"構造系なら",(field==="env"?"シミュレーション":"解析や3Dの作業")+"はノートPCでは力不足なので、進学・就職どちらでも研究室のPCを使うことが多いです（本校の先生方の意見）。自分のPCはJw_cadとPowerPointが使えれば十分なので、ランク1（ライト）をおすすめします。"+(tier>=3?"3Dソフトを使いたい理由がなければ、ここまでのランクは必要ありません。":"")]);
+  if(weight===2&&tier>=4) notes.push(["warn","重さに注意","このクラスは本体だけで2kg以上、ACアダプタも大きめです。毎日持ち歩くか、家に置いて使うかを先に決めてください。"]);
+  if(budget===0&&tier>=1) notes.push(["warn","10万円以下で探す場合","Core 5級・メモリ16GBの新品は12万円前後からです。整備済み品・型落ち・学割を探すか、今は買わずに学校のPCを使い、お金をためてから選ぶのも十分ありです。レポートだけなら、Q3で「レポートだけできればいい」を選ぶとランク0（ミニマム）になります。"]);
+  else if(os2!=="mac"&&fit<tier) notes.push(["warn","予算が足りない可能性",
+    `このランクの目安は ${t.price} です。予算内なら「ランク${fit}（${TIERS[fit].name}）」が目安です。もう一つの方法は、今は予算内のランクにして、足りない作業は学校や研究室のPCを使うことです。メモリとGPUは後から変えられないので、買うなら削らないでください。`]);
+  if(os2!=="mac"&&tier===3&&fit===2&&!soft.includes("arch")) notes.push(["good","予算内でRhinoを使いたいなら","Rhinoの軽いモデリングなら、Intel Arc内蔵のCore Ultra（Hシリーズ）など新しい内蔵GPUでも動きます。ランク2でメモリ32GBにするのも現実的な選択です。"]);
+  if(os2==="mac"&&macOK&&fit<tier) notes.push(["warn","予算が足りない可能性",`このランクのMacの目安は ${MAC[macLevel(tier)].price} です。予算内ならMacBook ${MAC[macLevel(fit)].name}が目安です。`]);
+  if(os2==="mac"){
+    notes.push(["warn","Macを選ぶ場合","Macは機種が少なく選びやすく、CADを使ってもファンの音が気にならないのが長所です（MacBook Airはファンなし、Proも静か）。ただしJw_cad（授業で使用）はWindows専用で、Macでは動きません。Jw_cadは学校のPCでも使えますが、自分のPCで課題をしたいならWindowsをすすめます。AutoCAD・Archicad・Rhino・Twinmotion・Illustrator・AffinityはMacでも使えます。"]);
+    if(tier===0) notes.push(["good","レポートだけならMacは割高","MacBook Airは22.5万円からです。レポートだけなら、Windowsのランク0の方がずっと安く済みます。"]);
+  } else if(os==="any") notes.push(["good","WindowsとMac、どちらにする？","Macは機種が少なく選びやすく、CADを使ってもファンの音が気にならないのが長所です（MacBook Airはファンなし、Proも静か）。価格は、3Dエントリー（ランク3）あたりでは同じくらい、それ以外はWindowsの方が安いことが多いです。ただし授業で使うJw_cadとLumionはWindows専用です。自分のPCでJw_cadの課題をしたいならWindowsにしてください。"]);
+  if(tier===0) notes.push(["good","ランク0について","8GBの機種は新品で8万円前後から、16GBのランク1は12万円前後からです。差が3〜4万円なので、余裕があればランク1の方が長く使えます。レポートがGoogleドキュメントやWeb版Officeで済むなら、Chromebookのようなさらに安い選択肢もあります（使えるかは先生に確認してください）。"]);
+  if(os2!=="mac") notes.push(["good","Windowsの種類","Windows 11（x64版）を選んでください。Snapdragon搭載（ARM版）のPCでは、Rhinoなど動かないソフトがあります。"]);
+  if(want.includes("paint")) notes.push(["good","デジタルパースを描くなら","手描きパースが得意な人は、無理に3Dレンダリングに移らず、その力を伸ばしてください。PCを高くするより、ペンで描けるタブレット（iPad＋Apple Pencil など）を別に用意する方が描きやすいことが多いです。PCで描くならペン対応の2in1か、ペンタブレットを追加してください。"]);
+  return {tier,why,notes,field,path,want,soft,budget,weight,os:os2,osPicked:os,fit,winFit,macOK};
+}
+
+function spec(r){
+  if(r.os==="mac"){const m=MAC[macLevel(r.tier)]; return Object.assign({},TIERS[r.tier],m,{name:TIERS[r.tier].name+"（MacBook "+m.name+"）"});}
+  return TIERS[r.tier];
+}
+function queries(r){
+  const t=TIERS[r.tier];
+  if(r.os==="mac") return MAC[macLevel(r.tier)].kw;
+  return t.kw;
+}
+function shopLinks(q){
+  const e=encodeURIComponent(q);
+  return [["ヨドバシ","https://www.yodobashi.com/?word="+e],["価格.com","https://www.google.com/search?q="+encodeURIComponent(q+" site:kakaku.com")],
+          ["Amazon","https://www.amazon.co.jp/s?k="+e],["楽天","https://search.rakuten.co.jp/search/mall/"+e+"/"]];
+}
+function specRows(t,explain){
+  const row=(k,key,v)=>`<tr><th>${k}</th><td><b>${esc(v[0])}</b><small>${esc(v[1])}</small>${explain?`<span class="ex">${esc(EXPLAIN[key])}</span>`:""}</td></tr>`;
+  return row("CPU","cpu",t.cpu)+row("メモリ","mem",t.mem)+row("GPU","gpu",t.gpu)+row("SSD","ssd",t.ssd)+row("画面","scr",t.scr);
+}
+
+let last=null;
+function render(){
+  const r=diagnose(), t=spec(r); last=r;
+  document.getElementById("out").innerHTML=`
+    <div class="rank"><div><div class="rank-label">推奨ランク</div><div class="rank-name">${t.name}</div><div class="rank-label">${t.sub}</div></div>
+      <div class="rank-num">${r.tier}<small> / 5</small></div></div>
+    <p class="why">${r.why.map(esc).join("。")}。</p>
+    <h3>あなたが使うソフト（優先度順）</h3>
+    <ul class="prio">${PRIO.filter(x=>r.soft.includes(x[0])).map(x=>`<li><span>優先度${x[1]}</span><div><b>${SOFT_NAME[x[0]]}</b>　${x[2]}</div></li>`).join("")}</ul>
+    <table>${specRows(t,true)}
+      <tr><th>価格の目安</th><td><b>${t.price}</b><small>2026年10月時点・新品・税込・Officeなし。変動あり</small></td></tr>
+      <tr><th>整備済品</th><td><b>${t.refurb}</b><small>${r.os==="mac"?"Apple認定整備済製品は1年保証付き。在庫・構成で価格が変わる":"新品の1〜3割引きが目安（在庫次第）。メーカー直販のアウトレット・整備済品や、Amazonの「整備済み品」で探せる"}</small><span class="ex">新品同様に点検・清掃して保証を付けて売られる、返品や展示品などのPC。保証期間とバッテリーの状態を必ず確認する。</span></td></tr>
+      <tr><th>重さの目安</th><td><b>${t.wt}</b></td></tr></table>
+    <div class="notes">${r.notes.map(n=>`<div class="note ${n[0]}"><strong>${n[0]==="warn"?"【注意】":"【メモ】"}${esc(n[1])}</strong>${esc(n[2])}</div>`).join("")}</div>`;
+  const softs=PRIO.filter(x=>r.soft.includes(x[0])).map(x=>SOFT_NAME[x[0]]).join("、")||"（未選択）";
+  const wants=r.want.map(w=>WANT_NAME[w]).join("、")||"（未選択）";
+  const warns=r.notes.filter(n=>n[0]==="warn").map(n=>n[1]);
+  const planTxt = r.os==="mac" ? (r.macOK ? (r.fit<r.tier?`MacBook ${MAC[macLevel(r.fit)].name}`:"") : `Windows ランク${r.winFit}（${TIERS[r.winFit]?TIERS[r.winFit].name:"—"}）`) : (r.fit<r.tier&&r.fit>=0?`ランク${r.fit}（${TIERS[r.fit].name}）`:"");
+  const plan = planTxt ? `<tr><th>予算内の案</th><td><b>${planTxt}</b><small>予算内に収まらなければ、この案で相談したい</small></td></tr>` : "";
+  document.getElementById("memo").innerHTML=`
+    <h4>ノートPCの相談メモ</h4>
+    <p class="sub">建築コースの学生です。この条件に合うノートPCを探しています。</p>
+    <table>
+      <tr><th>予算</th><td><b>${BUDGET_NAME[r.budget]}</b>（本体）</td></tr>
+      <tr><th>OS</th><td><b>${r.os==="mac"?"Mac":"Windows 11（x64版）"}</b>${r.os==="mac"?"":"<small>ARM版（Snapdragon）は不可。Jw_cad・RhinoなどWindows x64前提のソフトを使うため</small>"}</td></tr>
+      <tr><th>重さ</th><td><b>${WEIGHT_NAME[r.weight]}</b></td></tr>
+      <tr><th>使うソフト</th><td><b>${esc(softs)}</b><small>優先度の高い順。用途：${esc(wants)}</small></td></tr>
+      ${specRows(t)}
+      <tr><th>価格の目安</th><td><b>${t.price}</b><small>整備済品なら：${esc(t.refurb)}</small></td></tr>
+      ${plan}
+    </table>
+    <div class="ask"><b>店員さんに聞きたいこと</b><ol>
+      <li>このスペックで予算内に収まる機種はありますか？</li>
+      <li>CPUの型番と世代、メモリは後から増設できるか教えてください。</li>
+      <li>ACアダプタを含めた重さはどれくらいですか？</li>
+      <li>この条件に合う整備済品・アウトレット品はありますか？</li>
+      ${warns.length?`<li>気になる点：${esc(warns.join("／"))}</li>`:""}
+    </ol></div>
+    <p class="foot">5年生まで（約3年）使う予定です。推奨ランク：${r.tier} / 5（${t.name}）　作成：建築コースPC診断</p>`;
+  document.getElementById("search").innerHTML=queries(r).map(q=>`<div class="qrow"><code>${esc(q)}</code><div class="links">${shopLinks(q).map(l=>`<a href="${l[1]}" target="_blank" rel="noopener">${l[0]}</a>`).join("")}</div></div>`).join("");
+}
+document.getElementById("f").addEventListener("change",e=>{
+  render();
+});
+render();
+
+</script>
+
+</body>
+</html>
